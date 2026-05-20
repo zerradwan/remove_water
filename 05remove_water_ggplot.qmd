@@ -1,0 +1,61 @@
+---
+title: ""
+format: html
+editor: visual
+---
+
+```{r}
+lake_data <- st_read(
+  "/hpc/home/tvc11/HydroLAKES_polys_v10_shp"
+)
+grid_025deg <- st_read(
+  "/hpc/home/tvc11/AITreeMapping/05grids/malawiGIS/malawi_grid_025deg.shp"
+)
+ 
+sf::sf_use_s2(FALSE)
+ 
+# Make sure lake CRS matches grid CRS
+lake_data <- st_transform(lake_data, st_crs(grid_025deg))
+ 
+# Keep only lakes around the Malawi grid extent
+lake_malawi <- st_crop(lake_data, st_bbox(grid_025deg))
+ 
+grid_025deg <- grid_025deg %>%
+  mutate(
+    grid_num = str_extract(tile_id, "\\d+$")
+  )
+ 
+# Create label points inside each polygon
+grid_label <- st_point_on_surface(grid_025deg)
+ 
+# Plot map
+p <- ggplot() +
+  geom_sf(
+    data = lake_malawi,
+    fill = "#9ecae1",
+    color = NA
+  ) +
+  geom_sf(data = grid_025deg, fill = NA, color = "black", linewidth = 0.3) +
+  geom_sf(data = malawi, fill = NA, color ="red", linewidth = 1) +
+  geom_sf_text(
+    data = grid_label,
+    aes(label = grid_num),
+    size = 3,
+    color = "black"
+  ) +
+  theme_void() +
+  theme(
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.background = element_rect(fill = "white", color = NA)
+  )
+ 
+p
+ 
+ggsave(
+  filename = "D:/TreeBiomass/00DataPlus/00tutorials/malawi_grid_025deg_id_map.png",
+  plot = p,
+  width = 9.55,
+  height = 8.24,
+  dpi = 300
+)
+```
