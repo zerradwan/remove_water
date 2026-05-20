@@ -5,57 +5,83 @@ editor: visual
 ---
 
 ```{r}
-lake_data <- st_read(
-  "/hpc/home/tvc11/HydroLAKES_polys_v10_shp"
-)
-grid_025deg <- st_read(
-  "/hpc/home/tvc11/AITreeMapping/05grids/malawiGIS/malawi_grid_025deg.shp"
-)
- 
-sf::sf_use_s2(FALSE)
- 
-# Make sure lake CRS matches grid CRS
+library(tidyverse)
+library(sf)
+library(terra)
+library(gridExtra)
+
+sf_use_s2(FALSE)
+lake_data <- st_read("/hpc/home/tvc11/HydroLAKES_polys_v10_shp/HydroLAKES_polys_v10.shp")
+grid_025deg <- st_read("/hpc/home/tvc11/AITreeMapping/05grids/malawiGIS/malawi_grid_025deg.shp")
+malawi <- st_read("/hpc/home/tvc11/AITreeMapping/05grids/malawiGIS/malawiBoundary_v1.shp")
+
+new_tiles_dir <- "/hpc/group/dataplus26/AITreeMapping/03members/TateCommission/without_water_tiles"
+
+old_tiles_dir <- "/hpc/group/dataplus26/AITreeMapping/05grids/withwater"
+
 lake_data <- st_transform(lake_data, st_crs(grid_025deg))
- 
-# Keep only lakes around the Malawi grid extent
 lake_malawi <- st_crop(lake_data, st_bbox(grid_025deg))
- 
-grid_025deg <- grid_025deg %>%
-  mutate(
-    grid_num = str_extract(tile_id, "\\d+$")
-  )
- 
-# Create label points inside each polygon
+
+grid_025deg <- grid_025deg %>% mutate(grid_num = str_extract(tile_id, "\\d+$"))
 grid_label <- st_point_on_surface(grid_025deg)
- 
-# Plot map
-p <- ggplot() +
-  geom_sf(
-    data = lake_malawi,
-    fill = "#9ecae1",
-    color = NA
-  ) +
+
+new_shps <- list.files(new_tiles_dir, pattern = "\\.shp$", recursive = TRUE, full.names = TRUE)
+new_tiles <- bind_rows(lapply(new_shps, st_read))
+new_tiles <- st_transform(new_tiles, st_crs(grid_025deg))
+
+old_shps <- list.files(old_tiles_dir, pattern = "\\.shp$", recursive = TRUE, full.names = TRUE)
+old_tiles <- bind_rows(lapply(old_shps, st_read))
+old_tiles <- st_transform(old_tiles, st_crs(grid_025deg))
+
+#p
+#ggsave(
+#  filename = "D:/TreeBiomass/00DataPlus/00tutorials/malawi_grid_025deg_id_map.png",
+#  plot = p,
+#  width = 20,
+#  height = 8.24,
+#  dpi = 300
+#)
+```
+
+```{r}
+
+p_old <- ggplot() +
+  geom_sf(data = lake_malawi, fill = "darkblue", color = NA) +
+  geom_sf(data = old_tiles, fill = "#9ecae1", color = NA) +
+  geom_sf(data = malawi, fill = NA, color = "firebrick", linewidth = 1) +
   geom_sf(data = grid_025deg, fill = NA, color = "black", linewidth = 0.3) +
-  geom_sf(data = malawi, fill = NA, color ="red", linewidth = 1) +
-  geom_sf_text(
-    data = grid_label,
-    aes(label = grid_num),
-    size = 3,
-    color = "black"
-  ) +
+  geom_sf_text(data = grid_label, aes(label = grid_num), size = 3, color = "black") +
+  ggtitle("Before") +
   theme_void() +
-  theme(
-    plot.background = element_rect(fill = "white", color = NA),
-    panel.background = element_rect(fill = "white", color = NA)
-  )
+  theme(plot.background = element_rect(fill = "white", color = NA),
+        plot.title = element_text(face = "bold", size = 90))
+
+p_new <- ggplot() +
+  geom_sf(data = lake_malawi, fill = "darkblue", color = NA) +
+  geom_sf(data = new_tiles, fill = "#9ecae1", color = NA) +
+  geom_sf(data = malawi, fill = NA, color = "firebrick", linewidth = 1) +
+  geom_sf(data = grid_025deg, fill = NA, color = "black", linewidth = 0.3) +
+  geom_sf_text(data = grid_label, aes(label = grid_num), size = 3, color = "black") +
+  ggtitle("After") +
+  theme_void() +
+  theme(plot.background = element_rect(fill = "white", color = NA),
+        plot.title = element_text(face = "bold", size = 90))
  
-p
- 
-ggsave(
-  filename = "D:/TreeBiomass/00DataPlus/00tutorials/malawi_grid_025deg_id_map.png",
-  plot = p,
-  width = 9.55,
-  height = 8.24,
-  dpi = 300
-)
+p <- gridExtra::grid.arrange(p_old, p_new, ncol = 2)
+
+ggsave("/hpc/group/dataplus26/AITreeMapping/03members/TateCommission/hanshimay20plot.png", p,  width = 30, height = 20)
+```
+
+```{r}
+library(lwgeom)
+land_area <- st_intersection(new_tiles, grid_025deg) %>%
+  mutate(area = as.numeric(st_area(.))) %>%
+  group_by(grid_num) %>%
+  summarise(total_area = sum(area))
+
+excluded <- grid_025deg %>%
+  filter(!grid_num %in% land_area$grid_num[land_area$total_area > 0])
+
+nrow(excluded)
+excluded$grid_num
 ```
