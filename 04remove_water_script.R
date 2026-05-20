@@ -21,6 +21,6 @@ for (folder in folders) {
     result <- st_difference(tiles, water_proj)
     out <- file.path("~/AITreeMapping/03members/TateCommission/without_water_tiles", basename(folder), basename(shp))
     dir.create(dirname(out), recursive = TRUE, showWarnings = FALSE)
-    st_write(result, out)
+    st_write(result, out, delete_dsn = TRUE)
   }
 }
