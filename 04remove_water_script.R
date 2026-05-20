@@ -9,7 +9,7 @@ unzip("/hpc/group/dataplus26/AITreeMapping/05grids/HydroLAKES_polys_v10_shp.zip"
 sf_use_s2(FALSE)
 water_sf <- st_read(file.path(water_dir, "HydroLAKES_polys_v10_shp/HydroLAKES_polys_v10.shp")) %>%
   filter(Lake_area > 10) %>%
-  st_simplify(dTolerance = 0.01) %>%
+  st_simplify(dTolerance = 0.008) %>%
   filter(!st_is_empty(.)) %>%
   st_union()
 
